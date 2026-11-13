@@ -161,19 +161,57 @@
         </div>
 
         <div class="form-group">
-          <label>Product Icon / Emoji</label>
-          <div class="emoji-picker" id="emojiPicker">
-            <button type="button" class="emoji-opt active" data-emoji="🎧">🎧</button>
-            <button type="button" class="emoji-opt" data-emoji="⌚">⌚</button>
-            <button type="button" class="emoji-opt" data-emoji="📱">📱</button>
-            <button type="button" class="emoji-opt" data-emoji="💻">💻</button>
-            <button type="button" class="emoji-opt" data-emoji="👕">👕</button>
-            <button type="button" class="emoji-opt" data-emoji="👗">👗</button>
-            <button type="button" class="emoji-opt" data-emoji="👟">👟</button>
-            <button type="button" class="emoji-opt" data-emoji="🥾">🥾</button>
-            <button type="button" class="emoji-opt" data-emoji="🎒">🎒</button>
-            <button type="button" class="emoji-opt" data-emoji="📷">📷</button>
+          <label for="prodLink">Product / External URL (Optional)</label>
+          <input type="url" id="prodLink" placeholder="https://example.com/product/xyz" />
+        </div>
+
+        <div class="form-group">
+          <label>Product Image / Media Source</label>
+          <div class="media-tabs" id="mediaTabs">
+            <button type="button" class="media-tab" data-tab="upload">📁 Upload Image</button>
+            <button type="button" class="media-tab" data-tab="url">🌐 Image URL</button>
+            <button type="button" class="media-tab active" data-tab="emoji">🎨 Preset Icon</button>
           </div>
+
+          <!-- 1. Upload Image Panel -->
+          <div class="tab-panel" id="panelUpload" hidden>
+            <label class="file-dropzone" id="dropzone" for="prodFileInput">
+              <input type="file" id="prodFileInput" accept="image/*" class="file-input" />
+              <div class="dropzone-prompt">
+                <span class="dropzone-icon">📷</span>
+                <p><strong>Click to browse</strong> or choose image file</p>
+                <span class="dropzone-hint">PNG, JPG, WebP, SVG supported</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- 2. Image URL Panel -->
+          <div class="tab-panel" id="panelUrl" hidden>
+            <input type="url" id="prodImageUrl" placeholder="Paste image link: https://images.unsplash.com/..." />
+          </div>
+
+          <!-- 3. Emoji Picker Panel -->
+          <div class="tab-panel" id="panelEmoji">
+            <div class="emoji-picker" id="emojiPicker">
+              <button type="button" class="emoji-opt active" data-emoji="🎧">🎧</button>
+              <button type="button" class="emoji-opt" data-emoji="⌚">⌚</button>
+              <button type="button" class="emoji-opt" data-emoji="📱">📱</button>
+              <button type="button" class="emoji-opt" data-emoji="💻">💻</button>
+              <button type="button" class="emoji-opt" data-emoji="👕">👕</button>
+              <button type="button" class="emoji-opt" data-emoji="👗">👗</button>
+              <button type="button" class="emoji-opt" data-emoji="👟">👟</button>
+              <button type="button" class="emoji-opt" data-emoji="🥾">🥾</button>
+              <button type="button" class="emoji-opt" data-emoji="🎒">🎒</button>
+              <button type="button" class="emoji-opt" data-emoji="📷">📷</button>
+            </div>
+          </div>
+
+          <!-- Live Image Preview Box -->
+          <div class="image-preview-box" id="imagePreviewBox">
+            <span class="preview-label">Live Preview:</span>
+            <div class="preview-avatar" id="previewAvatar">🎧</div>
+          </div>
+
           <input type="hidden" id="prodEmoji" value="🎧" />
         </div>
 

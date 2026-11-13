@@ -224,12 +224,30 @@ function card(p) {
   const priceRow = el('div', 'card-price');
   priceRow.append(money(p.price), el('span', 'in-stock-pill', 'In Stock'));
 
+  const nameEl = p.productUrl
+    ? el('a', 'card-name', p.name)
+    : el('h3', 'card-name', p.name);
+
+  if (p.productUrl) {
+    nameEl.href = p.productUrl;
+    nameEl.target = '_blank';
+    nameEl.rel = 'noopener noreferrer';
+  }
+
   body.append(
-    el('h3', 'card-name', p.name),
+    nameEl,
     el('span', 'card-cat', p.category),
     rating,
     priceRow
   );
+
+  if (p.productUrl) {
+    const visitLink = el('a', 'card-link-btn', 'Visit Store ↗');
+    visitLink.href = p.productUrl;
+    visitLink.target = '_blank';
+    visitLink.rel = 'noopener noreferrer';
+    body.append(visitLink);
+  }
 
   c.append(thumbWrap, body);
   return c;
@@ -283,17 +301,87 @@ function setupAddProductModal() {
   const errorBox = $('formError');
   const emojiPicker = $('emojiPicker');
   const emojiInput = $('prodEmoji');
+  const fileInput = $('prodFileInput');
+  const urlInput = $('prodImageUrl');
+  const linkInput = $('prodLink');
+  const previewAvatar = $('previewAvatar');
+  const mediaTabs = $('mediaTabs');
+  const panelUpload = $('panelUpload');
+  const panelUrl = $('panelUrl');
+  const panelEmoji = $('panelEmoji');
+
+  let activeMediaMode = 'emoji'; // 'upload' | 'url' | 'emoji'
+  let uploadedDataUrl = null;
+
+  function updatePreview() {
+    previewAvatar.replaceChildren();
+    if (activeMediaMode === 'upload' && uploadedDataUrl) {
+      const img = el('img');
+      img.src = uploadedDataUrl;
+      previewAvatar.append(img);
+    } else if (activeMediaMode === 'url' && urlInput.value.trim()) {
+      const img = el('img');
+      img.src = urlInput.value.trim();
+      img.onerror = () => { previewAvatar.textContent = emojiInput.value || '📷'; };
+      previewAvatar.append(img);
+    } else {
+      previewAvatar.textContent = emojiInput.value || '🎧';
+    }
+  }
+
+  function setMediaTab(mode) {
+    activeMediaMode = mode;
+    mediaTabs.querySelectorAll('.media-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === mode);
+    });
+    panelUpload.hidden = mode !== 'upload';
+    panelUrl.hidden = mode !== 'url';
+    panelEmoji.hidden = mode !== 'emoji';
+    updatePreview();
+  }
+
+  mediaTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.media-tab');
+    if (btn) setMediaTab(btn.dataset.tab);
+  });
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        uploadedDataUrl = ev.target.result;
+        updatePreview();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  urlInput.addEventListener('input', () => {
+    if (activeMediaMode === 'url') updatePreview();
+  });
+
+  emojiPicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.emoji-opt');
+    if (!btn) return;
+    emojiPicker.querySelectorAll('.emoji-opt').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    emojiInput.value = btn.dataset.emoji;
+    updatePreview();
+  });
 
   const openModal = () => {
     form.reset();
     errorBox.hidden = true;
     errorBox.textContent = '';
+    uploadedDataUrl = null;
     $('prodRating').value = '4.5';
     $('prodReviews').value = '120';
     emojiInput.value = '🎧';
     emojiPicker.querySelectorAll('.emoji-opt').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.emoji === '🎧');
     });
+    setMediaTab('emoji');
     modal.hidden = false;
     $('prodName').focus();
   };
@@ -307,17 +395,16 @@ function setupAddProductModal() {
     if (e.target === modal) closeModal();
   });
 
-  emojiPicker.addEventListener('click', (e) => {
-    const btn = e.target.closest('.emoji-opt');
-    if (!btn) return;
-    emojiPicker.querySelectorAll('.emoji-opt').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    emojiInput.value = btn.dataset.emoji;
-  });
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorBox.hidden = true;
+
+    let finalImage = null;
+    if (activeMediaMode === 'upload' && uploadedDataUrl) {
+      finalImage = uploadedDataUrl;
+    } else if (activeMediaMode === 'url' && urlInput.value.trim()) {
+      finalImage = urlInput.value.trim();
+    }
 
     const payload = {
       name: $('prodName').value.trim(),
@@ -326,6 +413,8 @@ function setupAddProductModal() {
       rating: Number($('prodRating').value),
       reviews: Number($('prodReviews').value) || 0,
       emoji: emojiInput.value,
+      image: finalImage,
+      productUrl: linkInput ? linkInput.value.trim() : null,
     };
 
     if (!payload.name) {
@@ -344,7 +433,7 @@ function setupAddProductModal() {
     submitBtn.textContent = 'Publishing...';
 
     try {
-      const res = await createProduct(payload);
+      await createProduct(payload);
       closeModal();
       showToast(`✓ Published "${payload.name}" to inventory!`);
 

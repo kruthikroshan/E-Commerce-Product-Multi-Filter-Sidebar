@@ -53,14 +53,14 @@ router.get('/products', (req, res) => {
   }
   const items = queryProducts(inventory, parsed.criteria, parsed.sort).map((p) => ({
     ...p,
-    image: `/api/images/${p.id}.svg`,
+    image: p.image || `/api/images/${p.id}.svg`,
   }));
   res.json({ count: items.length, total: inventory.length, items });
 });
 
 // POST /api/products -> add new item to inventory with server-side validation
 router.post('/products', (req, res) => {
-  const { name, category, price, rating, emoji, reviews } = req.body || {};
+  const { name, category, price, rating, emoji, reviews, image, productUrl } = req.body || {};
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: '"name" is required and must be a non-empty string' });
@@ -84,6 +84,9 @@ router.post('/products', (req, res) => {
     ? emoji.trim()
     : (cleanCategory.toLowerCase() === 'electronics' ? '📱' : cleanCategory.toLowerCase() === 'footwear' ? '👟' : '👕');
 
+  const cleanImage = typeof image === 'string' && image.trim() ? image.trim() : null;
+  const cleanProductUrl = typeof productUrl === 'string' && productUrl.trim() ? productUrl.trim() : null;
+
   const maxId = inventory.reduce((max, p) => Math.max(max, p.id), 0);
   const hue = Math.floor(Math.random() * 360);
 
@@ -96,6 +99,8 @@ router.post('/products', (req, res) => {
     reviews: numReviews,
     emoji: cleanEmoji,
     hue,
+    image: cleanImage,
+    productUrl: cleanProductUrl,
   };
 
   inventory.push(newProduct);
@@ -104,7 +109,7 @@ router.post('/products', (req, res) => {
     message: 'Product created successfully',
     product: {
       ...newProduct,
-      image: `/api/images/${newProduct.id}.svg`,
+      image: newProduct.image || `/api/images/${newProduct.id}.svg`,
     },
   });
 });
