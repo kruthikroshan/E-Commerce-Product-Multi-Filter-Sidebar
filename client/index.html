@@ -3,13 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marketplace – Browse products</title>
+  <title>Marketplace Pro – Enterprise Catalog & Multi-Filter Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar"><h1>Marketplace</h1></header>
+  <!-- Top Application Bar -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-icon">⚡</span>
+        <div>
+          <h1>Marketplace Pro</h1>
+          <p class="brand-sub">Enterprise Inventory &amp; Multi-Filter Explorer</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" id="openAddModalBtn" class="primary-btn add-btn">
+          <span>+</span> Add Product
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Global Dashboard Metrics Strip -->
+  <section class="dashboard-strip" aria-label="Catalog Overview Dashboard">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-icon">📦</span>
+        <div class="stat-info">
+          <span class="stat-label">Total Inventory</span>
+          <strong id="statTotal" class="stat-value">--</strong>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🎯</span>
+        <div class="stat-info">
+          <span class="stat-label">Matching Products</span>
+          <strong id="statMatches" class="stat-value">--</strong>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🏷️</span>
+        <div class="stat-info">
+          <span class="stat-label">Price Bounds</span>
+          <strong id="statPriceRange" class="stat-value">--</strong>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⭐</span>
+        <div class="stat-info">
+          <span class="stat-label">Catalog Avg Rating</span>
+          <strong id="statRating" class="stat-value">--</strong>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div class="layout">
     <!-- LEFT: sticky filter sidebar -->
@@ -40,8 +90,11 @@
       </fieldset>
     </aside>
 
-    <!-- RIGHT: product grid -->
+    <!-- RIGHT: product grid and management -->
     <main class="content">
+      <!-- Active Filter Chips Row -->
+      <div id="activeChips" class="active-chips" hidden></div>
+
       <div class="toolbar">
         <p id="resultCount" class="count" aria-live="polite"></p>
         <label class="sort">
@@ -53,12 +106,87 @@
       <section id="grid" class="grid" aria-live="polite"></section>
 
       <section id="empty" class="empty" hidden>
+        <div class="empty-icon">🔍</div>
         <p class="empty-title">No items match your criteria.</p>
-        <p class="empty-sub">Try widening the price range or removing a filter.</p>
+        <p class="empty-sub">Try widening the price range or removing an active filter.</p>
         <button type="button" id="emptyReset" class="primary-btn">Reset filters</button>
       </section>
     </main>
   </div>
+
+  <!-- Add Product Modal Dialog -->
+  <div id="addModal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <div>
+          <h2 id="modalTitle">Add New Product</h2>
+          <p class="modal-desc">Create and instantly publish a new item into the inventory.</p>
+        </div>
+        <button type="button" id="closeModalBtn" class="icon-btn" aria-label="Close dialog">✕</button>
+      </div>
+
+      <form id="addProductForm" class="modal-form" novalidate>
+        <div id="formError" class="form-alert" hidden></div>
+
+        <div class="form-group">
+          <label for="prodName">Product Name *</label>
+          <input type="text" id="prodName" required placeholder="e.g. Wireless Noise-Cancelling Buds" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prodCategory">Category *</label>
+            <select id="prodCategory" required>
+              <option value="Electronics">Electronics</option>
+              <option value="Apparel">Apparel</option>
+              <option value="Footwear">Footwear</option>
+              <option value="Accessories">Accessories</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="prodPrice">Price (₹ INR) *</label>
+            <input type="number" id="prodPrice" min="1" step="10" required placeholder="1499" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prodRating">Rating (1 to 5) *</label>
+            <input type="number" id="prodRating" min="1" max="5" step="0.1" value="4.5" required />
+          </div>
+          <div class="form-group">
+            <label for="prodReviews">Reviews Count</label>
+            <input type="number" id="prodReviews" min="0" step="1" value="120" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Product Icon / Emoji</label>
+          <div class="emoji-picker" id="emojiPicker">
+            <button type="button" class="emoji-opt active" data-emoji="🎧">🎧</button>
+            <button type="button" class="emoji-opt" data-emoji="⌚">⌚</button>
+            <button type="button" class="emoji-opt" data-emoji="📱">📱</button>
+            <button type="button" class="emoji-opt" data-emoji="💻">💻</button>
+            <button type="button" class="emoji-opt" data-emoji="👕">👕</button>
+            <button type="button" class="emoji-opt" data-emoji="👗">👗</button>
+            <button type="button" class="emoji-opt" data-emoji="👟">👟</button>
+            <button type="button" class="emoji-opt" data-emoji="🥾">🥾</button>
+            <button type="button" class="emoji-opt" data-emoji="🎒">🎒</button>
+            <button type="button" class="emoji-opt" data-emoji="📷">📷</button>
+          </div>
+          <input type="hidden" id="prodEmoji" value="🎧" />
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelModalBtn" class="secondary-btn">Cancel</button>
+          <button type="submit" id="submitProdBtn" class="primary-btn">Publish Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast" hidden></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

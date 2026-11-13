@@ -58,6 +58,57 @@ router.get('/products', (req, res) => {
   res.json({ count: items.length, total: inventory.length, items });
 });
 
+// POST /api/products -> add new item to inventory with server-side validation
+router.post('/products', (req, res) => {
+  const { name, category, price, rating, emoji, reviews } = req.body || {};
+
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: '"name" is required and must be a non-empty string' });
+  }
+  if (!category || typeof category !== 'string' || !category.trim()) {
+    return res.status(400).json({ error: '"category" is required and must be a non-empty string' });
+  }
+  const numPrice = Number(price);
+  if (!Number.isFinite(numPrice) || numPrice <= 0) {
+    return res.status(400).json({ error: '"price" must be a positive number' });
+  }
+  const numRating = Number(rating);
+  if (!Number.isFinite(numRating) || numRating < 1 || numRating > 5) {
+    return res.status(400).json({ error: '"rating" must be between 1 and 5' });
+  }
+
+  const cleanName = name.trim();
+  const cleanCategory = category.trim();
+  const numReviews = Number.isInteger(Number(reviews)) && Number(reviews) >= 0 ? Number(reviews) : Math.floor(Math.random() * 80) + 10;
+  const cleanEmoji = emoji && typeof emoji === 'string' && emoji.trim()
+    ? emoji.trim()
+    : (cleanCategory.toLowerCase() === 'electronics' ? '📱' : cleanCategory.toLowerCase() === 'footwear' ? '👟' : '👕');
+
+  const maxId = inventory.reduce((max, p) => Math.max(max, p.id), 0);
+  const hue = Math.floor(Math.random() * 360);
+
+  const newProduct = {
+    id: maxId + 1,
+    name: cleanName,
+    category: cleanCategory,
+    price: Math.round(numPrice),
+    rating: Number(numRating.toFixed(1)),
+    reviews: numReviews,
+    emoji: cleanEmoji,
+    hue,
+  };
+
+  inventory.push(newProduct);
+
+  res.status(201).json({
+    message: 'Product created successfully',
+    product: {
+      ...newProduct,
+      image: `/api/images/${newProduct.id}.svg`,
+    },
+  });
+});
+
 // GET /api/images/:id.svg  -> generated thumbnail (no external image hosting needed)
 router.get('/images/:id.svg', (req, res) => {
   const p = inventory.find((x) => x.id === Number(req.params.id));

@@ -38,6 +38,7 @@ const seed = [
   ['Yoga Leggings', 'Apparel', 899, 4.2, '🧘', 290],
   ['Raincoat Packable', 'Apparel', 1599, 3.0, '🧥', 190],
   ['Polo T-Shirt Pack of 3', 'Apparel', 1099, 3.9, '👕', 150],
+  ['one-8 T-shirt pack of 10', 'Apparel', 4500, 3.8, '👕', 150],
   // Footwear
   ['Daily Running Shoes', 'Footwear', 2999, 4.5, '👟', 140],
   ['Leather Formal Shoes', 'Footwear', 3499, 4.1, '👞', 25],

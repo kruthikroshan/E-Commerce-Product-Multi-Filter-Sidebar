@@ -69,18 +69,21 @@ function queryProducts(inventory, criteria, sortKey) {
   return sortProducts(filterProducts(inventory, criteria), sortKey);
 }
 
-/** Static facts the UI needs to render its controls. */
+/** Static facts the UI needs to render its controls and dashboard. */
 function getMeta(inventory) {
   const prices = inventory.map((p) => p.price);
   const counts = {};
   for (const p of inventory) counts[p.category] = (counts[p.category] || 0) + 1;
+  const totalRating = inventory.reduce((sum, p) => sum + p.rating, 0);
+  const avgRating = inventory.length ? Number((totalRating / inventory.length).toFixed(1)) : 0;
   return {
     categories: Object.keys(counts).sort().map((name) => ({ name, count: counts[name] })),
-    priceMin: Math.min(...prices),
-    priceMax: Math.max(...prices),
+    priceMin: prices.length ? Math.min(...prices) : 0,
+    priceMax: prices.length ? Math.max(...prices) : 0,
     ratingOptions: [1, 2, 3, 4, 5],
     sortOptions: SORT_OPTIONS,
     total: inventory.length,
+    avgRating,
   };
 }
 

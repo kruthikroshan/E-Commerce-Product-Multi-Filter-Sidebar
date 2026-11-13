@@ -17,3 +17,14 @@ export async function fetchProducts(state, signal) {
   if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
   return res.json();
 }
+
+export async function createProduct(data) {
+  const res = await fetch('/api/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Failed to create product');
+  return json;
+}

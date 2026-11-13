@@ -1,4 +1,4 @@
-import { fetchMeta, fetchProducts } from './api.js';
+import { fetchMeta, fetchProducts, createProduct } from './api.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -13,6 +13,15 @@ const GAP = 0; // allow min == max
 let meta;
 const state = { categories: new Set(), minPrice: 0, maxPrice: 0, minRating: 0, sort: 'relevance' };
 let controller = null; // cancels stale requests so fast slider drags never show old results
+let toastTimer = null;
+
+function showToast(message) {
+  const toast = $('toast');
+  toast.textContent = message;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 3500);
+}
 
 function starsEl(rating) {
   const full = Math.round(rating);
@@ -24,6 +33,77 @@ function starsEl(rating) {
   return s;
 }
 
+/* ---------------- dashboard stats update ---------------- */
+function updateDashboardStats(matchCount = 0) {
+  if (!meta) return;
+  $('statTotal').textContent = `${meta.total} Items`;
+  $('statMatches').textContent = `${matchCount} Active`;
+  $('statPriceRange').textContent = `${money(meta.priceMin)} – ${money(meta.priceMax)}`;
+  $('statRating').textContent = `${meta.avgRating ? meta.avgRating.toFixed(1) : '4.2'} ★`;
+}
+
+/* ---------------- active filter chips ---------------- */
+function renderActiveChips() {
+  const box = $('activeChips');
+  box.replaceChildren();
+
+  const isCustomPrice = (state.minPrice > meta.priceMin) || (state.maxPrice < meta.priceMax);
+  const hasFilters = state.categories.size > 0 || isCustomPrice || state.minRating > 0;
+
+  if (!hasFilters) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+
+  box.append(el('span', 'chip-label', 'Active Filters:'));
+
+  for (const cat of state.categories) {
+    const chip = el('span', 'chip', cat);
+    const del = el('button', '', '✕');
+    del.title = `Remove ${cat} filter`;
+    del.addEventListener('click', () => {
+      state.categories.delete(cat);
+      buildCategories();
+      refresh();
+    });
+    chip.append(del);
+    box.append(chip);
+  }
+
+  if (isCustomPrice) {
+    const chip = el('span', 'chip', `${money(state.minPrice)} – ${money(state.maxPrice)}`);
+    const del = el('button', '', '✕');
+    del.title = 'Reset price range';
+    del.addEventListener('click', () => {
+      state.minPrice = meta.priceMin;
+      state.maxPrice = meta.priceMax;
+      syncPriceUI();
+      refresh();
+    });
+    chip.append(del);
+    box.append(chip);
+  }
+
+  if (state.minRating > 0) {
+    const chip = el('span', 'chip', `${state.minRating}★ & up`);
+    const del = el('button', '', '✕');
+    del.title = 'Clear rating filter';
+    del.addEventListener('click', () => {
+      state.minRating = 0;
+      buildRatings();
+      refresh();
+    });
+    chip.append(del);
+    box.append(chip);
+  }
+
+  const clearAll = el('button', 'link-btn', 'Clear all');
+  clearAll.style.fontSize = '0.8rem';
+  clearAll.addEventListener('click', resetFilters);
+  box.append(clearAll);
+}
+
 /* ---------------- sidebar construction ---------------- */
 function buildCategories() {
   const box = $('categoryList');
@@ -31,7 +111,8 @@ function buildCategories() {
   for (const c of meta.categories) {
     const label = el('label', 'opt');
     const cb = el('input');
-    cb.type = 'checkbox'; cb.value = c.name;
+    cb.type = 'checkbox';
+    cb.value = c.name;
     cb.checked = state.categories.has(c.name);
     cb.addEventListener('change', () => {
       cb.checked ? state.categories.add(c.name) : state.categories.delete(c.name);
@@ -48,12 +129,18 @@ function buildRatings() {
   const add = (value, content) => {
     const label = el('label', 'opt');
     const r = el('input');
-    r.type = 'radio'; r.name = 'rating'; r.value = value;
+    r.type = 'radio';
+    r.name = 'rating';
+    r.value = value;
     r.checked = state.minRating === value;
-    r.addEventListener('change', () => { state.minRating = value; refresh(); });
+    r.addEventListener('change', () => {
+      state.minRating = value;
+      refresh();
+    });
     label.append(r, content);
     box.append(label);
   };
+
   add(0, el('span', '', 'Any rating'));
   for (const n of meta.ratingOptions) {
     const wrap = el('span', 'stars');
@@ -61,7 +148,9 @@ function buildRatings() {
     wrap.append(el('span', 'off', '★'.repeat(5 - n)));
     const txt = el('span', '', n === 5 ? ' only' : ' & up');
     txt.style.color = 'var(--muted)';
-    const holder = el('span'); holder.style.display = 'flex'; holder.style.gap = '6px';
+    const holder = el('span');
+    holder.style.display = 'flex';
+    holder.style.gap = '6px';
     holder.append(wrap, txt);
     add(n, holder);
   }
@@ -69,7 +158,8 @@ function buildRatings() {
 
 function syncPriceUI() {
   const min = $('minPrice'), max = $('maxPrice');
-  min.value = state.minPrice; max.value = state.maxPrice;
+  min.value = state.minPrice;
+  max.value = state.maxPrice;
   $('minOut').textContent = money(state.minPrice);
   $('maxOut').textContent = money(state.maxPrice);
   const span = meta.priceMax - meta.priceMin || 1;
@@ -80,44 +170,85 @@ function syncPriceUI() {
 function setupPriceSlider() {
   const min = $('minPrice'), max = $('maxPrice');
   for (const i of [min, max]) {
-    i.min = meta.priceMin; i.max = meta.priceMax; i.step = 50;
+    i.min = meta.priceMin;
+    i.max = meta.priceMax;
+    i.step = 50;
   }
   min.addEventListener('input', () => {
     state.minPrice = Math.min(Number(min.value), state.maxPrice - GAP);
-    syncPriceUI(); refresh();
+    syncPriceUI();
+    refresh();
   });
   max.addEventListener('input', () => {
     state.maxPrice = Math.max(Number(max.value), state.minPrice + GAP);
-    syncPriceUI(); refresh();
+    syncPriceUI();
+    refresh();
   });
 }
 
 function setupSort() {
   const sel = $('sortSelect');
+  sel.replaceChildren();
   for (const o of meta.sortOptions) sel.append(new Option(o.label, o.value));
-  sel.addEventListener('change', () => { state.sort = sel.value; refresh(); });
+  sel.value = state.sort;
+  sel.addEventListener('change', () => {
+    state.sort = sel.value;
+    refresh();
+  });
 }
 
 /* ---------------- grid rendering ---------------- */
 function card(p) {
   const c = el('article', 'card');
-  const img = el('img'); img.src = p.image; img.alt = p.name; img.loading = 'lazy';
+
+  const thumbWrap = el('div', 'card-thumb-wrap');
+  const img = el('img');
+  img.src = p.image;
+  img.alt = p.name;
+  img.loading = 'lazy';
+  thumbWrap.append(img);
+
+  const catBadge = el('span', 'card-badge', p.category);
+  thumbWrap.append(catBadge);
+
+  if (p.rating >= 4.5) {
+    const topTag = el('span', 'top-rated-tag', '★ Top Rated');
+    thumbWrap.append(topTag);
+  }
+
   const body = el('div', 'card-body');
   const rating = el('div', 'card-rating');
-  rating.append(starsEl(p.rating), `${p.rating.toFixed(1)} (${p.reviews})`);
-  body.append(el('h3', 'card-name', p.name), el('span', 'card-cat', p.category), rating, el('div', 'card-price', money(p.price)));
-  c.append(img, body);
+  const ratingScore = el('strong', '', p.rating.toFixed(1));
+  rating.append(starsEl(p.rating), ratingScore, `(${p.reviews})`);
+
+  const priceRow = el('div', 'card-price');
+  priceRow.append(money(p.price), el('span', 'in-stock-pill', 'In Stock'));
+
+  body.append(
+    el('h3', 'card-name', p.name),
+    el('span', 'card-cat', p.category),
+    rating,
+    priceRow
+  );
+
+  c.append(thumbWrap, body);
   return c;
 }
 
 function render(data) {
   const grid = $('grid'), empty = $('empty');
   $('resultCount').textContent = `Showing ${data.count} of ${data.total} products`;
-  if (data.count === 0) {           // zero matches: grid disappears, empty state shows
-    grid.replaceChildren(); grid.hidden = true; empty.hidden = false;
+  updateDashboardStats(data.count);
+  renderActiveChips();
+
+  if (data.count === 0) {
+    grid.replaceChildren();
+    grid.hidden = true;
+    empty.hidden = false;
     return;
   }
-  empty.hidden = true; grid.hidden = false;
+  empty.hidden = true;
+  grid.hidden = false;
   grid.replaceChildren(...data.items.map(card));
 }
 
@@ -133,9 +264,105 @@ async function refresh() {
 
 function resetFilters() {
   state.categories.clear();
-  state.minPrice = meta.priceMin; state.maxPrice = meta.priceMax; state.minRating = 0;
-  buildCategories(); buildRatings(); syncPriceUI();
-  refresh(); // sort choice is intentionally kept
+  state.minPrice = meta.priceMin;
+  state.maxPrice = meta.priceMax;
+  state.minRating = 0;
+  buildCategories();
+  buildRatings();
+  syncPriceUI();
+  refresh();
+}
+
+/* ---------------- modal & add product ---------------- */
+function setupAddProductModal() {
+  const modal = $('addModal');
+  const openBtn = $('openAddModalBtn');
+  const closeBtn = $('closeModalBtn');
+  const cancelBtn = $('cancelModalBtn');
+  const form = $('addProductForm');
+  const errorBox = $('formError');
+  const emojiPicker = $('emojiPicker');
+  const emojiInput = $('prodEmoji');
+
+  const openModal = () => {
+    form.reset();
+    errorBox.hidden = true;
+    errorBox.textContent = '';
+    $('prodRating').value = '4.5';
+    $('prodReviews').value = '120';
+    emojiInput.value = '🎧';
+    emojiPicker.querySelectorAll('.emoji-opt').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.emoji === '🎧');
+    });
+    modal.hidden = false;
+    $('prodName').focus();
+  };
+
+  const closeModal = () => { modal.hidden = true; };
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  emojiPicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.emoji-opt');
+    if (!btn) return;
+    emojiPicker.querySelectorAll('.emoji-opt').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    emojiInput.value = btn.dataset.emoji;
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBox.hidden = true;
+
+    const payload = {
+      name: $('prodName').value.trim(),
+      category: $('prodCategory').value.trim(),
+      price: Number($('prodPrice').value),
+      rating: Number($('prodRating').value),
+      reviews: Number($('prodReviews').value) || 0,
+      emoji: emojiInput.value,
+    };
+
+    if (!payload.name) {
+      errorBox.textContent = 'Please enter a product name.';
+      errorBox.hidden = false;
+      return;
+    }
+    if (!payload.price || payload.price <= 0) {
+      errorBox.textContent = 'Please enter a valid positive price.';
+      errorBox.hidden = false;
+      return;
+    }
+
+    const submitBtn = $('submitProdBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Publishing...';
+
+    try {
+      const res = await createProduct(payload);
+      closeModal();
+      showToast(`✓ Published "${payload.name}" to inventory!`);
+
+      // Refresh metadata and recalculate bounds/categories
+      meta = await fetchMeta();
+      state.maxPrice = Math.max(state.maxPrice, meta.priceMax);
+      buildCategories();
+      setupPriceSlider();
+      syncPriceUI();
+      refresh();
+    } catch (err) {
+      errorBox.textContent = err.message || 'Failed to add product.';
+      errorBox.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Publish Product';
+    }
+  });
 }
 
 /* ---------------- boot ---------------- */
@@ -143,11 +370,20 @@ function resetFilters() {
   try {
     meta = await fetchMeta();
   } catch (e) {
-    $('resultCount').textContent = e.message; return;
+    $('resultCount').textContent = e.message;
+    return;
   }
-  state.minPrice = meta.priceMin; state.maxPrice = meta.priceMax;
-  buildCategories(); buildRatings(); setupPriceSlider(); setupSort(); syncPriceUI();
+  state.minPrice = meta.priceMin;
+  state.maxPrice = meta.priceMax;
+  buildCategories();
+  buildRatings();
+  setupPriceSlider();
+  setupSort();
+  syncPriceUI();
+  setupAddProductModal();
+
   $('resetBtn').addEventListener('click', resetFilters);
   $('emptyReset').addEventListener('click', resetFilters);
+
   refresh();
 })();
