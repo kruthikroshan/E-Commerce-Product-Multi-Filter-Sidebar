@@ -206,6 +206,7 @@ function card(p) {
   img.src = p.image;
   img.alt = p.name;
   img.loading = 'lazy';
+  img.onerror = () => { img.src = `/api/images/${p.id}.svg`; };
   thumbWrap.append(img);
 
   const catBadge = el('span', 'card-badge', p.category);
