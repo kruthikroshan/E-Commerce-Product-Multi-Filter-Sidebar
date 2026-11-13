@@ -1,0 +1,14 @@
+{
+  "name": "ecommerce-filter-sidebar",
+  "version": "1.0.0",
+  "description": "E-commerce product multi-filter sidebar with server-side filtering and sorting",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test server/tests/filterService.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2" },
+  "license": "MIT"
+}
